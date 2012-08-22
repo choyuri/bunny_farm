@@ -38,7 +38,7 @@ handle_call({<<B/binary>>, Args}, From, State) ->
   handle_call(Args, From, State);
 
 handle_call(connection, From, State) ->
-  handle_call({connection, <<"qserver.two">>}, From, State);
+  handle_call({connection, {<<"qserver.two">>,<<"key">>}}, From, State);
 
 handle_call({connection,X}, _From, State) ->
   Conn = qcache:get_conn(State#state.cache_pid, X),
@@ -57,7 +57,7 @@ handle_cast({set_value,K,V}, State) ->
   TupleList = lists:keystore(K,1,State#state.tuples, {K,V}),
   {noreply, State#state{tuples=TupleList}};
 
-handle_cast(stop, State) -> {noreply,State};
+handle_cast(stop, State) -> {stop,normal,State};
 
 handle_cast(A, State) ->
   error_logger:info_msg("[my_qserver] Got unexpected cast: ~p~n", [A]),

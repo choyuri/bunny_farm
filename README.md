@@ -33,19 +33,18 @@ connection, do this:
 {<<"exchange">>, [{encoding,<<"application/bson">>}]}
 ```
 
-Based on the spec, a connection will be made and all bus handles will be
-cached in memory by a separate server. These can be accessed in code by
-a call to `qcache`:
+Based on the spec, a connection will be made and the bus handles will be
+cached in memory. These can be accessed in code by a call to `qcache`:
 
 ```erlang
-qcache:get_bus(CachePid, <<"exchange">>)
+qcache:get_bus(Tid, <<"exchange">>)
 ```
 
 The id must be the same as when configuring the connection. Don't mix and
 match as this will yield unexpected results.
 
-The `CachePid` is how your implementation can access its cache. The pid is
-provided to your module via the init callback. If no explicit publish operations
+The `Tid` is how your implementation can access its cache. This id is
+provided to your module via the new() function. If no explicit publish operations
 are implemented, then this argument can be safely ignored.
 
 The `qcache` module supports other forms for more granular used.
@@ -249,7 +248,7 @@ added to the parameter list of your application.
 {amqp_username, <<"guest">>},
 {amqp_password, <<"guest">>},
 {amqp_virtual_host, <<"/">>},
-{amqp_host, [{"localhost",5672}] },
+{amqp_servers, [{"localhost",5672}] },
 {amqp_encoding, <<"application/erlang">>},
 
 {amqp_exchanges, [
@@ -280,13 +279,15 @@ routing key. Options are specified as a proplist. Current options include
 {type, binary()},
 {durable, boolean()},
 {exclusive, boolean()},
-
-{durable, boolean()},
-{exclusive, boolean()},
 {queue, binary()}
 ```
 
 The encoding property is only available for pub channels.
+
+### Processes
+A gen_qserver and gen_qfsm both utilize a qcache, which is now backed by ETS,
+so each server without any connections creates a single process. Rabbit
+itself will create many more processes.
 
 ## Future
 

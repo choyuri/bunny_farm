@@ -25,7 +25,7 @@
          terminate/2, code_change/3]).
 -export([call/2, call/3, cast/2]).
 
--record(gen_qstate, {module, module_state, cache_pid}).
+-record(gen_qstate, {module, module_state, cache_pid, encoding}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PUBLIC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -44,8 +44,14 @@ call(ServerRef, Request, Timeout) ->
 cast(ServerRef, Request) ->
   gen_server:cast(ServerRef, Request).
 
+start_link(Module, Args, [{encoding,Encoding}|Options], Connections) ->
+  gen_server:start_link(?MODULE, [Module,Args,Connections,Encoding], Options);
+
 start_link(Module, Args, Options, Connections) ->
   gen_server:start_link(?MODULE, [Module,Args,Connections], Options).
+
+start_link(ServerName, Module, Args, [{encoding,Encoding}|Options], ConnSpecs) ->
+  gen_server:start_link(ServerName, ?MODULE, [Module,Args,ConnSpecs,Encoding], Options);
 
 start_link(ServerName, Module, Args, Options, ConnSpecs) ->
   gen_server:start_link(ServerName, ?MODULE, [Module,Args,ConnSpecs], Options).
@@ -79,11 +85,15 @@ connect({MaybeX, MaybeK}) ->
   Tag = tag(),
   bunny_farm:consume(Handle, [{consumer_tag,Tag}]),
   Exchange = case MaybeX of
-    {Exch,_Os} -> Exch;
+    {Exch,_} -> Exch;
     Exch -> Exch
   end,
+  Key = case MaybeK of
+    {K,_} -> K;
+    K -> K
+  end,
   %error_logger:info_msg("[gen_qserver] Returning handle spec"),
-  [{id,Exchange}, {tag,Tag}, {handle,Handle}];
+  [{id,{Exchange,Key}}, {tag,Tag}, {handle,Handle}];
 
 %% Publish with no options
 connect(<<X/binary>>) -> connect({X,[]}).
@@ -116,13 +126,32 @@ response({stop, Reason, Reply, ModState}, #gen_qstate{}=State) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% GEN_SERVER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init([Module, Args, ConnSpecs]) ->
-  {ok,Pid} = qcache:start_link(),
+  {ok,Pid} = qcache:new(),
   Handles = lists:map(fun(Conn) -> connect(Conn) end, ConnSpecs),
   qcache:put_conns(Pid, Handles),
   random:seed(now()),
   case Module:init(Args, Pid) of
     {ok, ModuleState} ->
       State = #gen_qstate{module=Module, module_state=ModuleState, cache_pid=Pid},
+      Response = {ok, State};
+    {ok, ModuleState, Timeout} ->
+      State = #gen_qstate{module=Module, module_state=ModuleState, cache_pid=Pid},
+      Response = {ok, State, Timeout};
+    {stop, Reason} ->
+      Response = {stop, Reason}
+  end,
+  Response;
+
+%% Add an override for the encoding. All received messages will use this instead
+%% of what the message content-type specifies.
+init([Module, Args, ConnSpecs, Encoding]) ->
+  {ok,Pid} = qcache:new(),
+  Handles = lists:map(fun(Conn) -> connect(Conn) end, ConnSpecs),
+  qcache:put_conns(Pid, Handles),
+  random:seed(now()),
+  case Module:init(Args, Pid) of
+    {ok, ModuleState} ->
+      State = #gen_qstate{module=Module, module_state=ModuleState, cache_pid=Pid, encoding=Encoding},
       Response = {ok, State};
     {ok, ModuleState, Timeout} ->
       State = #gen_qstate{module=Module, module_state=ModuleState, cache_pid=Pid},
@@ -157,7 +186,10 @@ handle_info(#'basic.consume_ok'{consumer_tag=Tag}, State) ->
 handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
   CachePid = State#gen_qstate.cache_pid,
   %lager:debug("Message:~n  ~p", [Content]),
-  Payload = farm_tools:decode_payload(Content),
+  Payload = case State#gen_qstate.encoding of
+    undefined -> farm_tools:decode_payload(Content);
+    Encoding -> farm_tools:decode_payload(Encoding,Content)
+  end,
   case farm_tools:is_rpc(Content) of
     true -> 
       ResponseTuple = handle_call({Key, Payload}, self(), State),
@@ -192,8 +224,8 @@ handle_info(Info, #gen_qstate{module=Module,
   end.
 
 
-terminate(Reason, State) ->
-  Handles = qcache:connections(State#gen_qstate.cache_pid),
+terminate(Reason, #gen_qstate{cache_pid=CachePid}=State) ->
+  Handles = qcache:connections(CachePid),
   Module = State#gen_qstate.module,
   ModuleState = State#gen_qstate.module_state,
   Module:terminate(Reason, ModuleState),
@@ -201,6 +233,7 @@ terminate(Reason, State) ->
     bunny_farm:close(?PV(handle,PList), ?PV(tag,PList))
   end,
   lists:map(Fn, Handles),
+  qcache:delete(CachePid),
   ok.
 
 code_change(_OldVersion, State, _Extra) ->
