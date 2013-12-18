@@ -43,6 +43,7 @@ decode_payload(Payload) -> decode_payload(bson, Payload).
 
 decode_payload(none, Payload) -> Payload;
 decode_payload(<<"application/octet-stream">>, Payload) -> Payload;
+decode_payload(<<"application/json">>, Payload) -> Payload;
 decode_payload({_E,M,F}, Payload) -> M:F(Payload);
 
 decode_payload(<<"application/x-erlang">>, Payload) ->
@@ -63,6 +64,7 @@ encode_payload(Payload) -> encode_payload(bson, Payload).
 
 encode_payload(none, Payload) -> Payload;
 encode_payload(<<"application/octet-stream">>, Payload) -> Payload;
+encode_payload(<<"application/json">>, Payload) -> Payload;
 encode_payload({_E,M,F}, Payload) -> M:F(Payload);
 
 encode_payload(<<"application/x-erlang">>, Payload) ->
