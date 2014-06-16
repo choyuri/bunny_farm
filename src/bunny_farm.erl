@@ -16,7 +16,7 @@
 -include("bunny_farm.hrl").
 -include("private_macros.hrl").
 -compile([{parse_transform,lager_transform}]).
--export([open/1, open/2, close/1, close/2]).
+-export([open/1, open/2, open/3, close/1, close/2]).
 -export([declare_exchange/1, declare_exchange/2,
   declare_queue/1, declare_queue/2, declare_queue/3,
   bind/3]).
@@ -57,6 +57,33 @@ open(MaybeX, MaybeK) ->
     _ -> Q = bunny_farm:declare_queue(BusHandle, KO)
   end,
   bunny_farm:bind(Q, K, BusHandle).
+
+open(AMQPParams, MaybeX, MaybeK) ->
+  {X,XO} = resolve_options(exchange, MaybeX),
+  {K,KO} = resolve_options(queue, MaybeK),
+
+  Keys = [amqp_host, amqp_port, amqp_username, amqp_password,amqp_virtual_host],
+  
+  
+  [H,R,U,P,V] = lists:map(
+                  fun(Key) ->  
+                    proplists:get_value(Key, AMQPParams)        
+                  end, 
+                  Keys),
+  Params = #amqp_params_network{username=U, password=P, virtual_host=V, host=H, port=R},
+  
+  lager:debug("Opening connection to ~p:~p", [H,R]),
+  lager:debug("Calling pid is ~p", [self()]),
+  
+  BusHandle = open_it(Params, #bus_handle{exchange=X, options=XO}),
+  bunny_farm:declare_exchange(BusHandle),
+  case X of
+    <<"">> -> Q = bunny_farm:declare_queue(K, BusHandle, KO);
+    _ -> Q = bunny_farm:declare_queue(BusHandle, KO)
+  end,
+  bunny_farm:bind(Q, K, BusHandle).
+
+
 
 
 close(#bus_handle{channel=Channel, conn=Connection}) ->

@@ -98,6 +98,22 @@ connect({MaybeX, MaybeK}) ->
 %% Publish with no options
 connect(<<X/binary>>) -> connect({X,[]}).
 
+connect(AMQPParams, {MaybeX, MaybeK}) ->
+  lager:debug("Opening AMQPParams:~p  ~p => ~p for consuming", [AMQPParams, MaybeX,MaybeK]),
+  Handle = bunny_farm:open(AMQPParams,MaybeX,MaybeK),
+  Tag = tag(),
+  bunny_farm:consume(Handle, [{consumer_tag,Tag}]),
+  Exchange = case MaybeX of
+    {Exch,_} -> Exch;
+    Exch -> Exch
+  end,
+  Key = case MaybeK of
+    {K,_} -> K;
+    K -> K
+  end,
+  %error_logger:info_msg("[gen_qserver] Returning handle spec"),
+  [{id,{Exchange,Key}}, {tag,Tag}, {handle,Handle}].
+
 
 response({noreply, ModState}, #gen_qstate{}=State) ->
   {noreply, State#gen_qstate{module_state=ModState}};
@@ -127,7 +143,23 @@ response({stop, Reason, Reply, ModState}, #gen_qstate{}=State) ->
 
 init([Module, Args, ConnSpecs]) ->
   {ok,Pid} = qcache:new(),
-  Handles = lists:map(fun(Conn) -> connect(Conn) end, ConnSpecs),
+  Handles = 
+       lists:map(fun(Conn) -> 
+                     lager:debug("TESTING Conn:~p",[Conn]),    
+                     case Conn of                         
+                        {amqp_params,AMQPDetails} ->
+                            lists:map(
+                              fun(AMQP) ->
+                                 AMQPParams = proplists:get_value(amqp_details,AMQP),
+                                 Connections = proplists:get_value(amqp_connections,AMQP),                           
+                             [ connect(AMQPParams,Connection) ||Connection <- Connections]             
+                              end, AMQPDetails);                
+                            
+                         _ ->
+                         connect(Conn) 
+                     end                 
+                 end, ConnSpecs),
+  
   qcache:put_conns(Pid, Handles),
   random:seed(now()),
   case Module:init(Args, Pid) of
