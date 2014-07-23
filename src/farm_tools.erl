@@ -43,7 +43,8 @@ decode_payload(Payload) -> decode_payload(bson, Payload).
 
 decode_payload(none, Payload) -> Payload;
 decode_payload(<<"application/octet-stream">>, Payload) -> Payload;
-decode_payload(<<"application/json">>, Payload) -> Payload;
+decode_payload(<<"application/json">>, Payload) -> 
+    jsx:json_to_term(Payload, [{strict,false}]);
 decode_payload({_E,M,F}, Payload) -> M:F(Payload);
 
 decode_payload(<<"application/x-erlang">>, Payload) ->
