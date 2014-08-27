@@ -144,22 +144,22 @@ response({stop, Reason, Reply, ModState}, #gen_qstate{}=State) ->
 init([Module, Args, ConnSpecs]) ->
   {ok,Pid} = qcache:new(),
   Handles = 
-       lists:map(fun(Conn) -> 
-                     lager:debug("TESTING Conn:~p",[Conn]),    
+       lists:foldl(fun(Conn,HandlesList0) ->                      
+                     H0 = 
                      case Conn of                         
                         {amqp_params,AMQPDetails} ->
-                            lists:map(
-                              fun(AMQP) ->
+                            lists:foldl(
+                              fun(AMQP,HandlesList) ->
                                  AMQPParams = proplists:get_value(amqp_details,AMQP),
                                  Connections = proplists:get_value(amqp_connections,AMQP),                           
-                             [ connect(AMQPParams,Connection) ||Connection <- Connections]             
-                              end, AMQPDetails);                
-                            
+                             H1 =[ connect(AMQPParams,Connection) ||Connection <- Connections],                             
+                             H1 ++ HandlesList
+                              end,[],AMQPDetails);                                            
                          _ ->
                          connect(Conn) 
-                     end                 
-                 end, ConnSpecs),
-  
+                     end,
+                     H0 ++ HandlesList0
+                 end,[],ConnSpecs),  
   qcache:put_conns(Pid, Handles),
   random:seed(now()),
   case Module:init(Args, Pid) of
