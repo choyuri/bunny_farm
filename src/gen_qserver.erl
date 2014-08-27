@@ -156,7 +156,7 @@ init([Module, Args, ConnSpecs]) ->
                              H1 ++ HandlesList
                               end,[],AMQPDetails);                                            
                          _ ->
-                         connect(Conn) 
+                         [connect(Conn)] 
                      end,
                      H0 ++ HandlesList0
                  end,[],ConnSpecs),  
