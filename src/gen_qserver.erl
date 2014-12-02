@@ -98,6 +98,13 @@ connect({MaybeX, MaybeK}) ->
 %% Publish with no options
 connect(<<X/binary>>) -> connect({X,[]}).
 
+connect(AMQPParams, {MaybeX}) ->
+  lager:debug("Opening AMQPParams:~p  ~p for publishing", [AMQPParams, MaybeX]),
+  Handle = bunny_farm:open(AMQPParams,MaybeX,undefined),
+  Exchange =MaybeX,
+  %error_logger:info_msg("[gen_qserver] Returning handle spec"),
+  [{id,Exchange}, {tag,<<"">>}, {handle,Handle}];
+
 connect(AMQPParams, {MaybeX, MaybeK}) ->
   lager:debug("Opening AMQPParams:~p  ~p => ~p for consuming", [AMQPParams, MaybeX,MaybeK]),
   Handle = bunny_farm:open(AMQPParams,MaybeX,MaybeK),

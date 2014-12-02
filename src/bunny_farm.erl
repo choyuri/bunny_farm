@@ -58,6 +58,26 @@ open(MaybeX, MaybeK) ->
   end,
   bunny_farm:bind(Q, K, BusHandle).
 
+open(AMQPParams, MaybeX, undefined) ->
+  {X,XO} = resolve_options(exchange, MaybeX),
+
+  Keys = [amqp_host, amqp_port, amqp_username, amqp_password,amqp_virtual_host],
+  
+  
+  [H,R,U,P,V] = lists:map(
+                  fun(Key) ->  
+                    proplists:get_value(Key, AMQPParams)        
+                  end, 
+                  Keys),
+  Params = #amqp_params_network{username=U, password=P, virtual_host=V, host=H, port=R},
+  
+  lager:debug("Opening connection to ~p:~p", [H,R]),
+  lager:debug("Calling pid is ~p", [self()]),
+  
+  BusHandle = open_it(Params, #bus_handle{exchange=X, options=XO}),
+  bunny_farm:declare_exchange(BusHandle),
+  BusHandle;
+
 open(AMQPParams, MaybeX, MaybeK) ->
   {X,XO} = resolve_options(exchange, MaybeX),
   {K,KO} = resolve_options(queue, MaybeK),
