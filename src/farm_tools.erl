@@ -58,7 +58,9 @@ decode_payload(bson, Payload) ->
   catch
     error:{badmatch,_} -> decode_payload(erlang, Payload);
     error:function_clause -> decode_payload(erlang, Payload)
-  end.
+  end;
+decode_payload(undefined,Payload) ->
+    lager:error("undefined encoding type. Payload is ignored:~p",[Payload]).
 
 encode_payload(Payload) -> encode_payload(bson, Payload).
 
