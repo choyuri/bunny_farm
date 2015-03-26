@@ -23,7 +23,7 @@
          handle_cast/2,
          handle_info/2,
          terminate/2, code_change/3]).
--export([call/2, call/3, cast/2]).
+-export([call/2, call/3, cast/2, reply/2]).
 
 -record(gen_qstate, {module, module_state, cache_pid, encoding}).
 
@@ -55,6 +55,10 @@ start_link(ServerName, Module, Args, [{encoding,Encoding}|Options], ConnSpecs) -
 
 start_link(ServerName, Module, Args, Options, ConnSpecs) ->
   gen_server:start_link(ServerName, ?MODULE, [Module,Args,ConnSpecs], Options).
+
+reply({ReplyTo, Props, BusHandle}, Reply) ->
+  Msg = #message{payload=Reply, props=Props},
+  bunny_farm:respond(Msg, ReplyTo, BusHandle).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PRIVATE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tag() ->
