@@ -246,6 +246,14 @@ handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
       From = {ReplyTo, Props, BusHandle},
       ResponseTuple = handle_call({Key, Payload}, From, State),
       case ResponseTuple of
+        {reply, {multi_part, [_Response|_]=Responses},NewState} ->                             
+          FnSend =
+              fun(Response) ->
+                Msg = #message{payload=Response, props=Props},                
+                bunny_farm:respond(Msg, ReplyTo, BusHandle)
+              end,
+          [ FnSend(R)||R<-Responses];
+          
         {noreply,NewState} -> ok;
         % TODO: Clean up the embedded cases
         {reply,Response,NewState} ->          
