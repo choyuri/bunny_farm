@@ -233,6 +233,8 @@ handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
     undefined -> farm_tools:decode_payload(Content);
     Encoding -> farm_tools:decode_payload(Encoding,Content)
   end,
+  lager:debug("Key:~p~n  Payload:~p~n",[Key, Payload]),
+  
   case farm_tools:is_rpc(Content) of
       true ->
       {X,ReplyTo} = farm_tools:reply_to(Content),
@@ -249,7 +251,8 @@ handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
         {reply, {multi_part, [_Response|_]=Responses},NewState} ->                             
           FnSend =
               fun(Response) ->
-                Msg = #message{payload=Response, props=Props},                
+                Msg = #message{payload=Response, props=Props},
+                io:format("multi_part response:~p~n ReplyTo:~p~n",[Msg, ReplyTo]),
                 bunny_farm:respond(Msg, ReplyTo, BusHandle)
               end,
           [ FnSend(R)||R<-Responses];

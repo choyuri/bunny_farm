@@ -168,6 +168,7 @@ rpc(#message{payload=Payload, props=Props}, K,
   AMsg = #amqp_msg{payload=farm_tools:encode_payload(MimeType,Payload),
                    props=AProps},
   BasicPublish = #'basic.publish'{exchange=X, routing_key=K},
+  lager:debug("Channel:~p~n BasicPublish:~p~N AMsg:~p",[Channel, BasicPublish, AMsg]),
   amqp_channel:cast(Channel, BasicPublish, AMsg).
 
 rpc(Payload, ReplyTo, K, BusHandle) ->
@@ -184,7 +185,7 @@ respond(#message{payload=Payload, props=Props}, RoutingKey,
   AMsg = #amqp_msg{payload=farm_tools:encode_payload(MimeType,Payload),
                    props=farm_tools:to_amqp_props(Props)},
   BasicPublish = #'basic.publish'{exchange=X, routing_key=RoutingKey},
-  error_logger:info_msg("Responding to ~p~n", [BasicPublish]),
+  lager:debug("Responding to ~p~n ~p~n", [BasicPublish,Payload]),
   amqp_channel:cast(Channel, BasicPublish, AMsg);
 
 respond(Payload, RoutingKey, #bus_handle{}=BusHandle) ->
