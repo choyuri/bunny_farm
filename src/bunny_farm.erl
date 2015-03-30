@@ -155,7 +155,7 @@ publish(#message{payload=Payload, props=Props}, K,
 publish(Payload, RoutingKey, #bus_handle{}=BusHandle) ->
   publish(#message{payload=Payload}, RoutingKey, BusHandle).
 
-
+ 
 
 rpc(#message{payload=Payload, props=Props}, K,
     #bus_handle{exchange=X, channel=Channel, options=Options}) ->
