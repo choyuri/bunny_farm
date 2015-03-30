@@ -243,7 +243,8 @@ handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
       %error_logger:info_msg("Responding to ~p => ~p~n", [X,ReplyTo]),
       
       Props = [ {content_type, farm_tools:content_type(Content)},
-                {correlation_id, farm_tools:correlation_id(Content)} ],
+                {correlation_id, farm_tools:correlation_id(Content)},
+                {type, farm_tools:type(Content)}],
       %% contruct the From param to enable direct replies via gen_qserver:reply/2
       From = {ReplyTo, Props, BusHandle},
       ResponseTuple = handle_call({Key, Payload}, From, State),

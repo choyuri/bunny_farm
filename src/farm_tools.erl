@@ -26,6 +26,7 @@
          is_rpc/1,
          reply_to/1, reply_to/2,
          content_type/1, content_type/2,
+         type/1, 
          encoding/1,
          correlation_id/1 ]).
 
@@ -170,6 +171,13 @@ reply_to(#amqp_msg{}=Content) ->
     [K] -> {<<"">>,K}
   end.
 
+
+-spec type(#amqp_msg{}) -> binary().
+type(#amqp_msg{}=Content) ->
+  type(farm_tools:decode_properties(Content));
+
+type(Props) when is_list(Props) ->
+  p(type, Props).
 
 -spec correlation_id(#amqp_msg{}) -> binary().
 correlation_id(#amqp_msg{}=Content) ->
