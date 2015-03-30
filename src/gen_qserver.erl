@@ -247,14 +247,15 @@ handle_info({#'basic.deliver'{routing_key=Key}, Content}, State) ->
       %% contruct the From param to enable direct replies via gen_qserver:reply/2
       From = {ReplyTo, Props, BusHandle},
       ResponseTuple = handle_call({Key, Payload}, From, State),
+      io:format("ResponseTuple:~p~n",[ResponseTuple]),
+      io:format("ReplyTo:~p~n",[ReplyTo]),
       case ResponseTuple of
-        {reply, {multi_part, 
-                  [_Response|_]=Responses},NewState} ->                             
+        {reply, {multi_part, [_Response|_]=Responses},NewState} ->                             
           FnSend =
-              fun({AdditionalProperties, Response}) ->
-                Msg = #message{payload=Response, props= AdditionalProperties ++ Props},
-                io:format("multi_part response:~p~n ReplyTo:~p~n",[Msg, ReplyTo]),
-                bunny_farm:respond(Msg, ReplyTo, BusHandle)
+              fun({ReplyTo2, AdditionalProperties, Response}) ->
+                Msg = #message{payload=Response, props=AdditionalProperties ++ Props},
+                io:format("multi_part response:~p~n ReplyTo:~p~n",[Msg, ReplyTo2]),
+                bunny_farm:respond(Msg, ReplyTo2, BusHandle)
               end,
           [ FnSend(R)||R<-Responses];
           
